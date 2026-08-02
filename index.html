@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pocket Bowling</title>
+<style>
+  :root {
+    --bg-dark: #0f172a;
+    --bg-panel: #1e293b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #10b981;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; touch-action: manipulation; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-dark);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #landscape-warning {
+    display: none;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--bg-dark);
+    z-index: 9999;
+    flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; padding: 20px; font-size: 1.2rem;
+  }
+  @media (orientation: landscape) {
+    #landscape-warning { display: flex; }
+    #game-container { display: none !important; }
+  }
+
+  #game-container {
+    display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 500px; margin: 0 auto;
+  }
+
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px;
+    background: var(--bg-panel);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    z-index: 10;
+  }
+
+  .currency {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: 1.1rem;
+    background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 20px;
+  }
+
+  .menu-btn-wrapper { position: relative; }
+  .menu-btn {
+    background: var(--accent); color: white;
+    border: none; padding: 8px 16px; border-radius: 20px;
+    font-weight: 600; cursor: pointer; transition: 0.2s;
+  }
+  .menu-btn:active { transform: scale(0.95); }
+
+  .notification-badge {
+    position: absolute; top: -4px; right: -4px;
+    width: 12px; height: 12px; background: #ef4444;
+    border-radius: 50%; border: 2px solid var(--bg-panel);
+    display: none;
+  }
+  .notification-badge.active { display: block; }
+
+  #lane-area {
+    flex-grow: 1; position: relative; width: 100%;
+    background: radial-gradient(circle at top, #1e293b, #0f172a);
+    overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
+  }
+
+  #lane-svg-container {
+    position: relative;
+    width: 320px;
+    height: 100%;
+    max-height: 520px;
+  }
+
+  .pin, .ball {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.4s ease;
+  }
+
+  #controls-area {
+    background: var(--bg-panel);
+    padding: 20px;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.3);
+    z-index: 10;
+  }
+
+  .score-board {
+    display: flex; justify-content: space-between;
+    margin-bottom: 12px; font-weight: bold; font-size: 1.1rem;
+  }
+
+  .status-text {
+    text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;
+    min-height: 18px;
+  }
+
+  #timing-bar {
+    width: 100%; height: 24px; background: #334155;
+    border-radius: 12px; margin-bottom: 15px;
+    position: relative; overflow: hidden; border: 2px solid #475569;
+  }
+  #timing-sweet-spot {
+    position: absolute; left: 40%; width: 20%; height: 100%;
+    background: rgba(16, 185, 129, 0.4);
+  }
+  #timing-cursor {
+    position: absolute; left: 0; top: 0; width: 12px; height: 100%;
+    background: #ef4444; border-radius: 6px; box-shadow: 0 0 8px #ef4444;
+  }
+
+  .action-btn {
+    width: 100%; padding: 16px; background: var(--accent); color: white;
+    border: none; border-radius: 12px; font-size: 1.2rem; font-weight: bold;
+    text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+  }
+  .action-btn:disabled { background: #334155; color: #64748b; }
+
+  /* Difficulty overlay grid */
+  #difficulty-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.94); z-index: 20;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 25px;
+    padding: 20px;
+  }
+  .diff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    max-width: 300px;
+  }
+  .diff-btn {
+    padding: 18px 10px;
+    background: var(--bg-panel);
+    color: white;
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    letter-spacing: 0.5px;
+  }
+  .diff-btn:hover { background: var(--accent); color: white; }
+  .diff-btn:active { transform: scale(0.96); }
+
+  .diff-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: white;
+    text-align: center;
+  }
+
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 1000;
+    display: flex; justify-content: center; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+
+  .modal-content {
+    background: var(--bg-panel); width: 100%; max-width: 500px; height: 85%;
+    border-radius: 24px 24px 0 0; display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .modal-overlay.active .modal-content { transform: translateY(0); }
+
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px; border-bottom: 1px solid #334155;
+  }
+  .modal-title { font-size: 1.2rem; font-weight: bold; }
+  .close-btn { background: none; border: none; padding: 5px; cursor: pointer; }
+
+  .modal-tabs { display: flex; border-bottom: 1px solid #334155; position: relative; }
+  .tab-btn {
+    flex: 1; padding: 15px; background: none; border: none; color: var(--text-muted);
+    font-weight: bold; font-size: 1rem; border-bottom: 3px solid transparent; transition: 0.2s;
+    position: relative;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-notification {
+    position: absolute; top: 12px; right: 25%;
+    width: 10px; height: 10px; background: #ef4444; border-radius: 50%;
+    display: none;
+  }
+  .tab-notification.active { display: block; }
+
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .shop-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;
+  }
+  .shop-item {
+    background: #0f172a; border-radius: 12px; padding: 15px;
+    text-align: center; border: 2px solid #334155; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .shop-item.equipped { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
+  .shop-title { font-weight: bold; font-size: 0.95rem; }
+  .shop-btn {
+    width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold; font-size: 0.9rem; cursor: pointer;
+  }
+  .btn-buy { background: var(--accent); color: white; }
+  .btn-equip { background: #334155; color: white; }
+  .btn-equipped { background: transparent; color: var(--success); border: 2px solid var(--success); }
+
+  .achieve-list { display: flex; flex-direction: column; gap: 12px; }
+  .achieve-card {
+    background: #0f172a; border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px;
+    border-left: 4px solid #334155;
+  }
+  .achieve-card.unlocked { border-left-color: var(--success); background: rgba(16, 185, 129, 0.05); }
+  .achieve-icon { width: 32px; height: 32px; flex-shrink: 0; }
+  .achieve-details { flex-grow: 1; }
+  .achieve-title { font-weight: bold; font-size: 0.95rem; margin-bottom: 4px; }
+  .achieve-desc { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; }
+
+  .progress-container {
+    width: 100%; height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-top: 6px;
+  }
+  .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease; }
+  .achieve-card.unlocked .progress-bar { background: var(--success); }
+
+  .achieve-reward { font-size: 0.85rem; font-weight: bold; color: #f59e0b; margin-top: 4px; display: flex; align-items: center; gap: 4px;}
+
+  #achievement-alert {
+    position: fixed; top: 15px; left: 15px;
+    background: var(--bg-panel); border: 2px solid #f59e0b; color: white;
+    padding: 10px 16px; border-radius: 30px; font-weight: bold;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); z-index: 2000;
+    display: flex; align-items: center; gap: 10px;
+    transform: translateX(-150%); transition: transform 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.25);
+  }
+  #achievement-alert.show { transform: translateX(0); }
+
+  @keyframes trophyShake {
+    0% { transform: rotate(0deg); }
+    20% { transform: rotate(-15deg); }
+    40% { transform: rotate(15deg); }
+    60% { transform: rotate(-10deg); }
+    80% { transform: rotate(10deg); }
+    100% { transform: rotate(0deg); }
+  }
+  .trophy-shake { animation: trophyShake 0.6s ease infinite; display: inline-block; }
+
+  #hud-message {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: var(--success); color: white; padding: 12px 24px;
+    border-radius: 30px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; text-align: center; white-space: pre-line;
+  }
+
+  svg.icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+
+<div id="landscape-warning">
+  <svg class="icon" style="width:48px;height:48px;margin-bottom:15px;stroke:#ef4444;" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+  Please rotate your device to Portrait mode to play.
+</div>
+
+<div id="game-container">
+
+  <header>
+    <div class="currency">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" fill="#fbbf24"/><path d="M12 8v8M10 10h4M10 14h4" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="coin-display">0</span>
+    </div>
+    <div class="menu-btn-wrapper">
+      <button class="menu-btn" onclick="openModal()">MENU</button>
+      <div class="notification-badge" id="menu-badge"></div>
+    </div>
+  </header>
+
+  <div id="lane-area">
+    <div id="difficulty-overlay">
+      <div class="diff-title">SELECT MODE</div>
+      <div class="diff-grid">
+        <button class="diff-btn" onclick="startGame('easy')">Easy</button>
+        <button class="diff-btn" onclick="startGame('normal')">Normal</button>
+        <button class="diff-btn" onclick="startGame('hard')">Hard</button>
+        <button class="diff-btn" onclick="startGame('extrahard')">Extra Hard</button>
+      </div>
+    </div>
+
+    <div id="lane-svg-container">
+      <svg width="100%" height="100%" viewBox="0 0 320 520" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="wood" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#b08d57" />
+            <stop offset="100%" stop-color="#e6b88a" />
+          </linearGradient>
+          <linearGradient id="gutterGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#050505" />
+            <stop offset="50%" stop-color="#1a1a1a" />
+            <stop offset="100%" stop-color="#050505" />
+          </linearGradient>
+        </defs>
+        <polygon points="0,520 90,40 230,40 320,520" fill="#0f172a"/>
+        <polygon points="20,520 98,40 110,40 45,520" fill="url(#gutterGrad)"/>
+        <polygon points="300,520 222,40 210,40 275,520" fill="url(#gutterGrad)"/>
+        <polygon points="45,520 110,40 210,40 275,520" fill="url(#wood)"/>
+        <path d="M160 380 L154 400 L166 400 Z" fill="#fff" opacity="0.35"/>
+        <path d="M120 410 L114 430 L126 430 Z" fill="#fff" opacity="0.35"/>
+        <path d="M200 410 L194 430 L206 430 Z" fill="#fff" opacity="0.35"/>
+      </svg>
+
+      <div id="entities-container" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></div>
+    </div>
+  </div>
+
+  <div id="controls-area">
+    <div class="score-board">
+      <div>YOU: <span id="player-score" style="color:var(--accent)">0</span></div>
+      <div style="font-size: 0.9rem; color:var(--text-muted);">Frame <span id="frame-display">1</span>/10</div>
+      <div>AI: <span id="ai-score">0</span></div>
+    </div>
+
+    <div class="status-text" id="status-text">Select a difficulty to start.</div>
+
+    <div id="timing-bar">
+      <div id="timing-sweet-spot"></div>
+      <div id="timing-cursor"></div>
+    </div>
+
+    <button id="throw-btn" class="action-btn" disabled onclick="throwBall()">THROW BALL</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="main-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Menu</div>
+      <button class="close-btn" onclick="closeModal()">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <div class="modal-tabs">
+      <button class="tab-btn active" onclick="switchTab('shop')">PRO SHOP</button>
+      <button class="tab-btn" onclick="switchTab('awards')">
+        AWARDS & STATS
+        <div class="tab-notification" id="tab-badge"></div>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div id="tab-shop" class="tab-content active">
+        <div class="shop-grid" id="shop-grid"></div>
+      </div>
+
+      <div id="tab-awards" class="tab-content">
+        <div style="background:#0f172a; padding:15px; border-radius:12px; margin-bottom:20px; font-size:0.85rem; border:1px solid #334155; line-height: 1.5;">
+          <strong style="color:white; font-size: 0.95rem;">Career & Performance Stats</strong><br>
+          <span style="color:var(--text-muted)">
+            Games Played: <span id="stat-games">0</span> | Total Points: <span id="stat-points">0</span><br>
+            Strikes Scored: <span id="stat-strikes">0</span> | 100 Pt Games: <span id="stat-perfect">0</span><br>
+            60+ Games: <span id="stat-60">0</span> | 80+ Games: <span id="stat-80">0</span><br>
+            Easy Wins: <span id="stat-ew">0</span> | Normal Wins: <span id="stat-nw">0</span> | Hard Wins: <span id="stat-hw">0</span> | Extra Hard Wins: <span id="stat-ehw">0</span>
+          </span>
+          <div style="margin-top: 10px; border-top: 1px solid #334155; padding-top: 8px;">
+            <strong style="color:white;">High Scores by Difficulty:</strong><br>
+            Easy: <span id="high-easy" style="color:var(--accent)">0</span> <span id="date-easy" style="font-size:0.75rem; color:var(--text-muted)"></span><br>
+            Normal: <span id="high-normal" style="color:var(--accent)">0</span> <span id="date-normal" style="font-size:0.75rem; color:var(--text-muted)"></span><br>
+            Hard: <span id="high-hard" style="color:var(--accent)">0</span> <span id="date-hard" style="font-size:0.75rem; color:var(--text-muted)"></span><br>
+            Extra Hard: <span id="high-extrahard" style="color:var(--accent)">0</span> <span id="date-extrahard" style="font-size:0.75rem; color:var(--text-muted)"></span>
+          </div>
+        </div>
+        <div class="achieve-list" id="achieve-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="achievement-alert">
+  <span class="trophy-shake">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17"></path><path d="M14 14.66V17"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+  </span>
+  <div id="alert-text" style="font-size:0.9rem;">Achievement Unlocked!</div>
+</div>
+
+<div id="hud-message">Message</div>
+
+<svg style="width:0;height:0;position:absolute;" aria-hidden="true">
+  <defs>
+    <radialGradient id="ballShade" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.7" />
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.6" />
+    </radialGradient>
+    <radialGradient id="gGold" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fff8b0" /><stop offset="50%" stop-color="#fbc02d" /><stop offset="100%" stop-color="#b45309" /></radialGradient>
+    <radialGradient id="gSilver" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffffff" /><stop offset="50%" stop-color="#94a3b8" /><stop offset="100%" stop-color="#475569" /></radialGradient>
+    <radialGradient id="gBronze" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fbcba3" /><stop offset="50%" stop-color="#cd7f32" /><stop offset="100%" stop-color="#78350f" /></radialGradient>
+    <radialGradient id="gGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff" /><stop offset="40%" stop-color="#3b82f6" /><stop offset="100%" stop-color="#0f172a" /></radialGradient>
+    <radialGradient id="gMeteor" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#fef08a" /><stop offset="30%" stop-color="#ef4444" /><stop offset="100%" stop-color="#450a0a" /></radialGradient>
+    <linearGradient id="gCrystal" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ccfbf1" /><stop offset="50%" stop-color="#2dd4bf" /><stop offset="100%" stop-color="#115e59" /></linearGradient>
+    <pattern id="pBase" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#f8fafc" />
+      <path d="M-5 20 Q15 20 15 5" stroke="#ef4444" stroke-width="2" fill="none" />
+      <path d="M45 20 Q25 20 25 35" stroke="#ef4444" stroke-width="2" fill="none" />
+    </pattern>
+  </defs>
+</svg>
+
+<script>
+  const entitiesContainer = document.getElementById('entities-container');
+  const cursor = document.getElementById('timing-cursor');
+  const throwBtn = document.getElementById('throw-btn');
+  const statusText = document.getElementById('status-text');
+  const diffOverlay = document.getElementById('difficulty-overlay');
+  const pScoreEl = document.getElementById('player-score');
+  const aScoreEl = document.getElementById('ai-score');
+  const frameEl = document.getElementById('frame-display');
+  const coinEl = document.getElementById('coin-display');
+  const hudMsg = document.getElementById('hud-message');
+  const menuBadge = document.getElementById('menu-badge');
+  const tabBadge = document.getElementById('tab-badge');
+  const achievementAlert = document.getElementById('achievement-alert');
+  const alertText = document.getElementById('alert-text');
+
+  const pinPositions = [
+    { id: 0, x: 160, y: 120, scale: 0.52 },
+    { id: 1, x: 147, y: 108, scale: 0.47 },
+    { id: 2, x: 173, y: 108, scale: 0.47 },
+    { id: 3, x: 134, y: 96,  scale: 0.42 },
+    { id: 4, x: 160, y: 96,  scale: 0.42 },
+    { id: 5, x: 186, y: 96,  scale: 0.42 },
+    { id: 6, x: 121, y: 84,  scale: 0.38 },
+    { id: 7, x: 147, y: 84,  scale: 0.38 },
+    { id: 8, x: 173, y: 84,  scale: 0.38 },
+    { id: 9, x: 199, y: 84,  scale: 0.38 },
+  ];
+
+  let pins = Array(10).fill(true);
+  let gameActive = false;
+  let playerTurn = true;
+  let currentFrame = 1;
+  let pScore = 0;
+  let aScore = 0;
+  let aiDiff = 'normal';
+  let aiBallIndex = 1;
+  let sliderSpeed = 4.4;
+
+  let sliderPos = 0;
+  let sliderDir = 1;
+  let sliderActive = true;
+  let barWidth = 0;
+
+  let coins = 0;
+  let selectedBall = 0;
+  let ownedBalls = new Set([0]);
+  let unlockedAch = new Set();
+  let hasUnseenAch = false;
+
+  let stats = {
+    games: 0, throws: 0, points: 0, strikes: 0, perfectGames: 0, games60: 0, games80: 0, streak: 0, lastWon: false,
+    easy: { w:0, bestScore: 0, bestDate: '' },
+    normal: { w:0, bestScore: 0, bestDate: '' },
+    hard: { w:0, bestScore: 0, bestDate: '' },
+    extrahard: { w:0, bestScore: 0, bestDate: '' }
+  };
+
+  const balls = [
+    { name: "White", cost: 0, fill: "#ffffff" },
+    { name: "Blue", cost: 10, fill: "#2563eb" },
+    { name: "Green", cost: 10, fill: "#10b981" },
+    { name: "Red", cost: 10, fill: "#ef4444" },
+    { name: "Purple", cost: 10, fill: "#8b5cf6" },
+    { name: "Bronze", cost: 20, fill: "url(#gBronze)" },
+    { name: "Pink", cost: 30, fill: "#ec4899" },
+    { name: "Silver", cost: 50, fill: "url(#gSilver)" },
+    { name: "Gold", cost: 100, fill: "url(#gGold)" },
+    { name: "Glowing", cost: 125, fill: "url(#gGlow)" },
+    { name: "Baseball", cost: 125, fill: "url(#pBase)" },
+    { name: "Meteor", cost: 150, fill: "url(#gMeteor)" },
+    { name: "Ice", cost: 150, fill: "#cffafe" },
+    { name: "Shadow", cost: 175, fill: "#0f172a" },
+    { name: "Crystal", cost: 200, fill: "url(#gCrystal)" },
+  ];
+
+  const achievements = [
+    { text: "Win a nail biter", desc: "Win a game within 5 points", reward: 2 },
+    { text: "Score 50 points in a game", desc: "Score 50 or more points", reward: 1 },
+    { text: "Score 60 points in a game", desc: "Score 60 or more points", reward: 3 },
+    { text: "Score 75 points in a game", desc: "Score 75 or more points", reward: 5 },
+    { text: "Perfect 100 Point Game", desc: "Score exactly 100 points", reward: 25 },
+    { text: "Get a Strike", desc: "Knock down all 10 pins in one throw", reward: 1 },
+    { text: "Throw 25 Strikes", desc: "Accumulate 25 strikes total", reward: 5, max: 25, getProgress: () => stats.strikes },
+    { text: "Throw 100 Strikes", desc: "Accumulate 100 strikes total", reward: 10, max: 100, getProgress: () => stats.strikes },
+    { text: "Throw 300 Strikes", desc: "Accumulate 300 strikes total", reward: 20, max: 300, getProgress: () => stats.strikes },
+    { text: "Throw 750 Strikes", desc: "Accumulate 750 strikes total", reward: 50, max: 750, getProgress: () => stats.strikes },
+    { text: "Score 1000 points total", desc: "Accumulate 1000 points", reward: 10, max: 1000, getProgress: () => stats.points },
+    { text: "Score 2500 points total", desc: "Accumulate 2500 points", reward: 25, max: 2500, getProgress: () => stats.points },
+    { text: "Score 5000 points total", desc: "Accumulate 5000 points", reward: 50, max: 5000, getProgress: () => stats.points },
+    { text: "Play 10 games", desc: "Complete 10 games played", reward: 10, max: 10, getProgress: () => stats.games },
+    { text: "Throw 100 balls", desc: "Make 100 throws", reward: 5, max: 100, getProgress: () => stats.throws },
+    { text: "Use all balls", desc: "Own all balls in the shop", reward: 10, max: balls.length, getProgress: () => ownedBalls.size },
+    { text: "Score 80 points in a game", desc: "Score 80 or more points", reward: 10 },
+    { text: "Score 90 points in a game", desc: "Score 90 or more points", reward: 15 },
+    { text: "Win 5 games in a row", desc: "Win 5 games consecutively", reward: 10, max: 5, getProgress: () => stats.streak },
+    { text: "Buy 5 balls", desc: "Purchase 5 different balls", reward: 5, max: 5, getProgress: () => ownedBalls.size },
+    { text: "Play on Easy", desc: "Play at least one game on Easy", reward: 1 },
+    { text: "Play on Normal", desc: "Play at least one game on Normal", reward: 1 },
+    { text: "Play on Hard", desc: "Play at least one game on Hard", reward: 1 },
+    { text: "Play on Extra Hard", desc: "Play at least one game on Extra Hard", reward: 1 },
+  ];
+
+  const aiDist = {
+    easy:      [0,0,10,20,20,30,10,5,3,1,1],
+    normal:    [0,0,0,5,10,10,15,30,25,2,3],
+    hard:      [0,0,0,0,0,0,10,20,25,30,15],
+    extrahard: [0,0,0,0,0,0,0,10,20,40,30]
+  };
+
+  function saveData() {
+    localStorage.setItem('cb_v6_data', JSON.stringify({
+      coins, selectedBall, owned: Array.from(ownedBalls), ach: Array.from(unlockedAch), stats, hasUnseenAch
+    }));
+  }
+
+  function loadData() {
+    const d = JSON.parse(localStorage.getItem('cb_v6_data'));
+    if(d) {
+      coins = d.coins || 0; selectedBall = d.selectedBall || 0;
+      if(d.owned) ownedBalls = new Set(d.owned);
+      if(d.ach) unlockedAch = new Set(d.ach);
+      if(d.stats) {
+        stats = {
+          games: 0, throws: 0, points: 0, strikes: 0, perfectGames: 0, games60: 0, games80: 0, streak: 0, lastWon: false,
+          easy: { w:0, bestScore: 0, bestDate: '' },
+          normal: { w:0, bestScore: 0, bestDate: '' },
+          hard: { w:0, bestScore: 0, bestDate: '' },
+          extrahard: { w:0, bestScore: 0, bestDate: '' },
+          ...d.stats
+        };
+      }
+      hasUnseenAch = d.hasUnseenAch || false;
+    }
+    coinEl.textContent = coins;
+    updateNotificationBadges();
+  }
+
+  function updateNotificationBadges() {
+    if(hasUnseenAch) {
+      menuBadge.classList.add('active');
+      tabBadge.classList.add('active');
+    } else {
+      menuBadge.classList.remove('active');
+      tabBadge.classList.remove('active');
+    }
+  }
+
+  function getPinSVG() {
+    return `
+      <svg viewBox="0 0 30 80" width="30" height="80">
+        <path d="M 15 0 C 22 0, 24 12, 19 25 C 14 38, 28 50, 28 70 C 28 80, 20 80, 15 80 C 10 80, 2 80, 2 70 C 2 50, 16 38, 11 25 C 6 12, 8 0, 15 0 Z" fill="#f8fafc" />
+        <path d="M 9.5 25 Q 15 27 20.5 25 L 20 28 Q 15 30 10 28 Z" fill="#ef4444" />
+        <path d="M 11 18 Q 15 20 19 18 L 19 21 Q 15 23 11 21 Z" fill="#ef4444" />
+        <path d="M 15 2 C 20 2, 22 12, 17 25 C 13 35, 20 45, 23 60 C 23 60, 20 50, 12 35 C 7 20, 12 5, 15 2 Z" fill="#ffffff" opacity="0.4"/>
+      </svg>`;
+  }
+
+  function getBallSVG(fill, size=40) {
+    return `
+      <svg viewBox="0 0 40 40" width="${size}" height="${size}">
+        <circle cx="20" cy="20" r="19" fill="${fill}" />
+        <circle cx="20" cy="20" r="19" fill="url(#ballShade)" />
+        <circle cx="13" cy="15" r="2.5" fill="#000" opacity="0.8"/>
+        <circle cx="27" cy="15" r="2.5" fill="#000" opacity="0.8"/>
+        <circle cx="20" cy="26" r="3" fill="#000" opacity="0.8"/>
+        <circle cx="14" cy="10" r="4" fill="#ffffff" opacity="0.3" filter="blur(1px)"/>
+      </svg>`;
+  }
+
+  function renderLane(activeBallFill = balls[selectedBall].fill, isAi = false) {
+    entitiesContainer.innerHTML = '';
+
+    pinPositions.forEach((pos, i) => {
+      if (pins[i]) {
+        const pin = document.createElement('div');
+        pin.className = 'pin';
+        pin.style.left = pos.x + 'px';
+        pin.style.top = pos.y + 'px';
+        pin.style.transform = `translate(-50%, -100%) scale(${pos.scale})`;
+        pin.style.zIndex = Math.floor(pos.y);
+        pin.innerHTML = getPinSVG();
+        pin.id = 'pin-' + i;
+        entitiesContainer.appendChild(pin);
+      }
+    });
+
+    const ball = document.createElement('div');
+    ball.className = 'ball';
+    ball.id = 'active-ball';
+    ball.style.left = '160px';
+    ball.style.top = '480px';
+    ball.style.transform = 'translate(-50%, -50%) scale(1)';
+    ball.style.zIndex = 1000;
+    ball.innerHTML = getBallSVG(activeBallFill, 56);
+    entitiesContainer.appendChild(ball);
+  }
+
+  function updateTimingBar() {
+    if(!sliderActive) { requestAnimationFrame(updateTimingBar); return; }
+    if(barWidth === 0) barWidth = document.getElementById('timing-bar').offsetWidth - 12;
+
+    sliderPos += sliderDir * sliderSpeed;
+    if(sliderPos <= 0) { sliderPos = 0; sliderDir = 1; }
+    if(sliderPos >= barWidth) { sliderPos = barWidth; sliderDir = -1; }
+
+    cursor.style.left = sliderPos + 'px';
+    requestAnimationFrame(updateTimingBar);
+  }
+
+  function getAccuracy() {
+    const center = barWidth / 2;
+    const dist = Math.abs(sliderPos - center);
+    return 1 - (dist / center);
+  }
+
+  function getPlayerKnockCount(acc) {
+    if (acc < 0.10) return 0;
+    if (acc < 0.20) return 1;
+    if (acc < 0.30) return 2;
+    if (acc < 0.40) return 3;
+    if (acc < 0.50) return 4;
+    if (acc < 0.60) return 5;
+    if (acc < 0.70) return 6;
+    if (acc < 0.80) return 7;
+    if (acc < 0.90) return 8;
+    if (acc < 0.96) return 9;
+    return 10;
+  }
+
+  function getAiKnockCount() {
+    const dist = aiDist[aiDiff];
+    if (!dist) return 0;
+    const total = dist.reduce((a,b)=>a+b,0);
+    let r = Math.random() * total, sum = 0;
+    for(let i=0; i<dist.length; i++) { sum += dist[i]; if(r <= sum) return i; }
+    return 0;
+  }
+
+  function applyKnock(count) {
+    let standing = pins.map((p,i) => p ? i : -1).filter(i => i !== -1);
+    standing.sort(() => Math.random() - 0.5);
+    let actual = 0;
+    for(let i=0; i<count && i<standing.length; i++) {
+      pins[standing[i]] = false;
+      actual++;
+      const el = document.getElementById('pin-'+standing[i]);
+      if(el) {
+        const scatterX = (Math.random() - 0.5) * 50;
+        const scatterY = (Math.random() - 0.5) * 25;
+        el.animate([
+          { transform: el.style.transform, opacity: 1 },
+          { transform: `${el.style.transform} translate(${scatterX}px, ${scatterY}px) rotate(${scatterX > 0 ? 90 : -90}deg)`, opacity: 0 }
+        ], { duration: 400, fill: 'forwards', easing: 'ease-out' });
+      }
+    }
+    return actual;
+  }
+
+  function startGame(diff) {
+    aiDiff = diff; gameActive = true; playerTurn = true; currentFrame = 1;
+    pScore = 0; aScore = 0;
+    aiBallIndex = Math.floor(Math.random() * balls.length);
+
+    const baseSpeed = 4;
+    switch(diff) {
+      case 'easy':      sliderSpeed = baseSpeed * 1.1; break;
+      case 'normal':    sliderSpeed = baseSpeed * 1.3; break;
+      case 'hard':      sliderSpeed = baseSpeed * 1.5; break;
+      case 'extrahard': sliderSpeed = baseSpeed * 1.65; break;
+      default:          sliderSpeed = baseSpeed * 1.1;
+    }
+
+    diffOverlay.style.display = 'none';
+    throwBtn.disabled = false;
+    updateHUD(`Game Started: ${diff.toUpperCase()}`);
+    updateScoreUI();
+    resetPins();
+
+    const diffName = diff === 'extrahard' ? 'Extra Hard' : diff.charAt(0).toUpperCase() + diff.slice(1);
+    checkAch(`Play on ${diffName}`);
+  }
+
+  function resetPins() {
+    pins.fill(true);
+    renderLane(balls[selectedBall].fill, false);
+  }
+
+  function throwBall() {
+    if(!playerTurn || !gameActive) return;
+    sliderActive = false; throwBtn.disabled = true; playerTurn = false;
+    stats.throws++;
+    if(stats.throws >= 100) checkAch("Throw 100 balls");
+
+    const acc = getAccuracy();
+    const knockCount = getPlayerKnockCount(acc);
+
+    animateRoll(balls[selectedBall].fill, false, () => {
+      const actual = applyKnock(knockCount);
+      pScore += actual;
+      updateScoreUI();
+      statusText.textContent = `You knocked down ${actual} pins.`;
+
+      if(actual === 10) {
+        stats.strikes++;
+        checkAch("Get a Strike");
+        checkAch("Throw 25 Strikes");
+        checkAch("Throw 100 Strikes");
+        checkAch("Throw 300 Strikes");
+        checkAch("Throw 750 Strikes");
+      }
+      setTimeout(aiTurn, 1100);
+    });
+  }
+
+  function aiTurn() {
+    if(!gameActive) return;
+    statusText.textContent = "AI is rolling...";
+    resetPins();
+
+    setTimeout(() => {
+      animateRoll(balls[aiBallIndex].fill, true, () => {
+        const actual = applyKnock(getAiKnockCount());
+        aScore += actual;
+        updateScoreUI();
+
+        currentFrame++;
+        if(currentFrame > 10) {
+          setTimeout(endGame, 1000);
+        } else {
+          statusText.textContent = `AI knocked down ${actual} pins. Your turn.`;
+          setTimeout(() => {
+            resetPins();
+            playerTurn = true;
+            throwBtn.disabled = false;
+            sliderActive = true;
+          }, 1000);
+        }
+      });
+    }, 600);
+  }
+
+  function animateRoll(ballFill, isAi, callback) {
+    renderLane(ballFill, isAi);
+    const ball = document.getElementById('active-ball');
+    const anim = ball.animate([
+      { top: '480px', transform: 'translate(-50%, -50%) scale(1)' },
+      { top: '120px', transform: 'translate(-50%, -50%) scale(0.52)' }
+    ], { duration: 750, easing: 'cubic-bezier(.17,.89,.32,1)', fill: 'forwards' });
+    anim.onfinish = () => {
+      ball.style.opacity = 0;
+      callback();
+    };
+  }
+
+  function updateScoreUI() {
+    pScoreEl.textContent = pScore;
+    aScoreEl.textContent = aScore;
+    frameEl.textContent = Math.min(currentFrame, 10);
+  }
+
+  function endGame() {
+    gameActive = false;
+    stats.games++; stats.points += pScore;
+
+    if(pScore === 100) stats.perfectGames++;
+    if(pScore >= 60) stats.games60++;
+    if(pScore >= 80) stats.games80++;
+
+    if (!stats[aiDiff]) {
+      stats[aiDiff] = { w:0, bestScore: 0, bestDate: '' };
+    }
+    const diffData = stats[aiDiff];
+    const todayStr = new Date().toLocaleDateString();
+    if(pScore > diffData.bestScore) {
+      diffData.bestScore = pScore;
+      diffData.bestDate = todayStr;
+    }
+
+    let winCoins = 0;
+    if(pScore > aScore) {
+      switch(aiDiff) {
+        case 'easy': winCoins = 1; break;
+        case 'normal': winCoins = 3; break;
+        case 'hard': winCoins = 5; break;
+        case 'extrahard': winCoins = 10; break;
+      }
+    }
+
+    let msg = `Game Over! You: ${pScore} | AI: ${aScore}. `;
+    if(pScore > diffData.bestScore) msg += `🎉 NEW HIGH SCORE! `;
+
+    if(pScore > aScore) {
+      msg += `YOU WIN! (+${winCoins} Coins)`;
+      coins += winCoins;
+      stats[aiDiff].w++;
+      stats.streak = stats.lastWon ? stats.streak + 1 : 1;
+      stats.lastWon = true;
+      if(pScore - aScore <= 5) checkAch("Win a nail biter");
+      if(stats.streak >= 5) checkAch("Win 5 games in a row");
+    } else {
+      msg += (pScore === aScore) ? "Tie Game." : "AI Wins.";
+      stats.streak = 0; stats.lastWon = false;
+    }
+
+    if(pScore >= 50) checkAch("Score 50 points in a game");
+    if(pScore >= 60) checkAch("Score 60 points in a game");
+    if(pScore >= 75) checkAch("Score 75 points in a game");
+    if(pScore >= 80) checkAch("Score 80 points in a game");
+    if(pScore >= 90) checkAch("Score 90 points in a game");
+    if(pScore === 100) checkAch("Perfect 100 Point Game");
+    if(stats.points >= 1000) checkAch("Score 1000 points total");
+    if(stats.points >= 2500) checkAch("Score 2500 points total");
+    if(stats.points >= 5000) checkAch("Score 5000 points total");
+    if(stats.games >= 10) checkAch("Play 10 games");
+
+    coinEl.textContent = coins;
+    saveData();
+    statusText.textContent = msg;
+    updateHUD(msg);
+
+    setTimeout(() => {
+      diffOverlay.style.display = 'flex';
+      sliderActive = true;
+    }, 3500);
+  }
+
+  function openModal() {
+    document.getElementById('main-modal').classList.add('active');
+    hasUnseenAch = false;
+    updateNotificationBadges();
+    saveData();
+    renderShop(); renderStats();
+  }
+  function closeModal() { document.getElementById('main-modal').classList.remove('active'); }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+  }
+
+  function renderShop() {
+    const grid = document.getElementById('shop-grid');
+    grid.innerHTML = '';
+    balls.forEach((b, i) => {
+      const isOwned = ownedBalls.has(i);
+      const isEq = selectedBall === i;
+      let btnHtml = '';
+      if(isEq) btnHtml = `<button class="shop-btn btn-equipped">Equipped</button>`;
+      else if(isOwned) btnHtml = `<button class="shop-btn btn-equip" onclick="buyOrEquip(${i})">Equip</button>`;
+      else btnHtml = `<button class="shop-btn btn-buy" onclick="buyOrEquip(${i})">Buy - ${b.cost}</button>`;
+
+      grid.innerHTML += `
+        <div class="shop-item ${isEq ? 'equipped' : ''}">
+          ${getBallSVG(b.fill, 50)}
+          <div class="shop-title">${b.name}</div>
+          ${btnHtml}
+        </div>
+      `;
+    });
+  }
+
+  function buyOrEquip(id) {
+    if(ownedBalls.has(id)) {
+      selectedBall = id;
+    } else {
+      if(coins >= balls[id].cost) {
+        coins -= balls[id].cost;
+        ownedBalls.add(id);
+        selectedBall = id;
+        updateHUD(`Purchased ${balls[id].name}!`);
+        if(ownedBalls.size >= 5) checkAch("Buy 5 balls");
+        if(ownedBalls.size === balls.length) checkAch("Use all balls");
+      } else {
+        updateHUD("Not enough coins!"); return;
+      }
+    }
+    coinEl.textContent = coins;
+    saveData();
+    renderShop();
+    if(!gameActive) resetPins();
+  }
+
+  function renderStats() {
+    document.getElementById('stat-games').textContent = stats.games;
+    document.getElementById('stat-points').textContent = stats.points;
+    document.getElementById('stat-strikes').textContent = stats.strikes;
+    document.getElementById('stat-perfect').textContent = stats.perfectGames;
+    document.getElementById('stat-60').textContent = stats.games60;
+    document.getElementById('stat-80').textContent = stats.games80;
+    document.getElementById('stat-ew').textContent = stats.easy ? stats.easy.w : 0;
+    document.getElementById('stat-nw').textContent = stats.normal ? stats.normal.w : 0;
+    document.getElementById('stat-hw').textContent = stats.hard ? stats.hard.w : 0;
+    document.getElementById('stat-ehw').textContent = stats.extrahard ? stats.extrahard.w : 0;
+
+    const modes = ['easy', 'normal', 'hard', 'extrahard'];
+    modes.forEach(mode => {
+      const el = document.getElementById('high-' + mode);
+      const dateEl = document.getElementById('date-' + mode);
+      if (el && dateEl && stats[mode]) {
+        el.textContent = stats[mode].bestScore;
+        dateEl.textContent = stats[mode].bestDate ? `(${stats[mode].bestDate})` : '';
+      }
+    });
+
+    const list = document.getElementById('achieve-list');
+    list.innerHTML = '';
+    achievements.forEach(a => {
+      const unlocked = unlockedAch.has(a.text);
+      const icon = unlocked
+        ? `<svg class="icon" stroke="var(--success)" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
+        : `<svg class="icon" stroke="var(--text-muted)" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+
+      let progressHtml = '';
+      if(a.max && a.getProgress) {
+        const current = Math.min(a.getProgress(), a.max);
+        const pct = Math.floor((current / a.max) * 100);
+        progressHtml = `
+          <div style="font-size: 0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:6px;">
+            <span>Progress</span><span>${current} / ${a.max}</span>
+          </div>
+          <div class="progress-container"><div class="progress-bar" style="width: ${pct}%"></div></div>
+        `;
+      }
+
+      list.innerHTML += `
+        <div class="achieve-card ${unlocked ? 'unlocked' : ''}">
+          <div class="achieve-icon">${icon}</div>
+          <div class="achieve-details">
+            <div class="achieve-title">${a.text}</div>
+            <div class="achieve-desc">${a.desc}</div>
+            ${progressHtml}
+            ${!unlocked ? `<div class="achieve-reward">Reward: +${a.reward} coins</div>` : ''}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  function checkAch(name) {
+    if(unlockedAch.has(name)) return;
+    const a = achievements.find(x => x.text === name);
+    if(a) {
+      if(a.max && a.getProgress) {
+        if(a.getProgress() < a.max) return;
+      }
+      unlockedAch.add(name);
+      coins += a.reward;
+      coinEl.textContent = coins;
+      hasUnseenAch = true;
+      updateNotificationBadges();
+      saveData();
+      showAchievementAlert(name);
+    }
+  }
+
+  let alertTimeout;
+  function showAchievementAlert(name) {
+    alertText.innerText = `Unlocked: ${name}!`;
+    achievementAlert.classList.add('show');
+    clearTimeout(alertTimeout);
+    alertTimeout = setTimeout(() => {
+      achievementAlert.classList.remove('show');
+    }, 3500);
+  }
+
+  let hudTimeout;
+  function updateHUD(text) {
+    hudMsg.innerText = text;
+    hudMsg.style.opacity = 1;
+    clearTimeout(hudTimeout);
+    hudTimeout = setTimeout(() => { hudMsg.style.opacity = 0; }, 3200);
+  }
+
+  loadData();
+  requestAnimationFrame(updateTimingBar);
+  resetPins();
+
+</script>
+</body>
+</html>
